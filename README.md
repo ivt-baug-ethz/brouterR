@@ -4,19 +4,8 @@ output: github_document
 
 <!-- README.md is generated from README.Rmd. Please edit that file -->
 
-```{r, include = FALSE}
-knitr::opts_chunk$set(
-  collapse = TRUE,
-  comment = "#>",
-  fig.path = "man/figures/README-",
-  out.width = "100%"
-)
-```
-
 # brouterR
 
-<!-- badges: start -->
-<!-- badges: end -->
 
 This is a R-Wrapper for the brouter, an open-source, OSM-based offline bicycle routing engine. The brouter has the advantage of using customizable routing profiles, which can take personal capabilities and preferences into account. There is a kinetic model embedded, which accounts for weight, maximum speed and power. For more info see: \  
 
