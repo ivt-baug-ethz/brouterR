@@ -6,6 +6,7 @@
 #' @return
 #' @export
 #' @keywords internal
+#' @noRd
 #'
 #' @examples
 splitForCores <- function(df, nrOfNodes){

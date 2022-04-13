@@ -5,6 +5,7 @@
 #' @export
 #'
 #' @keywords internal
+#' @noRd
 #'
 #' @examples
 killServers <- function(){
