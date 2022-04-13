@@ -20,4 +20,3 @@ Start running servers
 \examples{
 
 }
-\keyword{internal}

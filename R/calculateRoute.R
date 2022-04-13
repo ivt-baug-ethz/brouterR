@@ -3,7 +3,7 @@
 #' The route between two points is calculated for the given coordinates. The default values for rolling resistance and drag coefficient
 #' correspond to values found by Tengatti and Bigazzi (2018): Physical characteristics and resistance parameters of typical urban cyclists.
 #' brouterR ignores the bikerPower, totalMass, dragCoefficient, rollingResistance and maxSpeed available in the brouter routing profiles and uses the values provided via R instead.
-#' This functions needs the server to be set manually before running it!!
+#' This functions needs the server to be set manually before running it with the setServers and then the startServers functions.
 #'
 #' @param startLat Latitude of start location
 #' @param startLon Longitude of start location
@@ -18,16 +18,19 @@
 #' @param rollingResistance The rolling resistance of the underground. Default value assumes dry asphalt, 0.0077
 #' @param maxSpeed The maximum speed achieved by the bike in km/h. Defaults to 45 km/h.
 #'
-#' @return
+#' @return Either a dataframe of the track (outputFormat="csv"), or a SpatialPointsDataFrame (outputFormat="gpx"). In the SpatialPointsDataFrame, elevation data of each point is contained in the data.
 #' @export
 #'
 #' @examples
 #'
 #'
+library(plotKML)
+library(sp)
 calculateRoute <- function(startLat, startLon, endLat, endLon, bikerPower=100, totalMass=90,
                            dragCoefficient=0.559, rollingResistance=0.0077, maxSpeed=45, profile="trekking", outputFormat="csv",serverNodeId=1){
 
-
+  data <- tryCatch(
+    {
   url <- paste("http://127.0.0.",serverNodeId,":17777/brouter?lonlats=",
                startLon,",",startLat,"|",endLon,",",endLat,"&profile=",(profile),"&alternativeidx=0&format=",outputFormat,
                "&bikerPower=",bikerPower,
@@ -43,10 +46,17 @@ calculateRoute <- function(startLat, startLon, endLat, endLon, bikerPower=100, t
 
   } else if(outputFormat=="gpx"){
     download.file(url, paste(tempdir(), "\\this.gpx", sep=""), quiet=T)
-    data <- utils::read.table(paste(tempdir(), "\\this.gpx", sep=""), sep="\t", header=TRUE)
+    gpx <- plotKML::readGPX(paste(tempdir(), "\\this.gpx", sep=""))
+    gpx <- gpx$tracks[[1]][[1]]
+
+    sp::coordinates(gpx) <- ~ lat + lon
+    gpx@proj4string <- CRS("+init=epsg:2056")
+    data <- gpx
   }
-
-
+  },     error=function(e){
+        stop("Did you start the servers with startServers before calling this function? Did you provide all necessary inputs?")
+    }
+  )
  return(data)
 }
 

@@ -15,5 +15,7 @@ Imports:
     foreach,
     itertools,
     parallel,
+    plotKML,
     RCurl,
+    sp,
     stringr

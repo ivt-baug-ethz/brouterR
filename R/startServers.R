@@ -6,7 +6,6 @@
 #' @return none
 #' @export
 #'
-#' @keywords internal
 #'
 #' @examples
 #'

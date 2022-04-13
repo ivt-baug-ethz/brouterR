@@ -22,4 +22,3 @@ Set up servers for running brouter
 \examples{
 
 }
-\keyword{internal}

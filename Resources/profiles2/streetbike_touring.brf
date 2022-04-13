@@ -1,0 +1,999 @@
+################################################################
+#          A BRouter profile suited for a streetbike           #
+#                                                              #
+#          It was built to do light bike touring with          #
+#          a non-suspension citybike with narrow tires         #
+#          It prioritizes good ways, but allows some           #
+#          more offroad ways to avoid traffic and to           #
+#          follow nicer routes                                 #
+################################################################
+
+
+
+
+---context:global
+
+# Please set the switches directly below this comment as needed
+# standard switches
+# switch to choose if ferries are considered in routing
+assign allow_ferries true # %allow_ferries% | set to false to disallow ferries | boolean
+# switch to assume surfaces are wet
+assign is_wet false # %is_wet% | Wet conditions | boolean
+# switch to allow carrying over steps
+assign allow_steps true   # %allow_steps% | Set to false to disallow steps | boolean
+# custom parameters for this profile only
+# switch to take some paths that are technically not allowed (access forestry, destination etc.)
+assign looseaccessrules true
+# switch road side we drive on
+assign lefthandtraffic false
+
+# the cost for pushing the bike instead of riding it
+# 9.0 means we use 10x the cost for this
+assign bikepushcost 9.0
+# for better readability only
+assign avoidway 10000
+assign avoidnode 1000000
+
+assign turnInstructionMode 1
+assign validForBikes 1
+assign pass1coefficient 1
+assign pass2coefficient -1
+assign considerTurnRestrictions true
+
+assign uphillcost 80
+assign uphillcutoff 0.5
+assign downhillcost 100
+assign downhillcutoff 2.0
+
+assign traffic_tier1 0.1
+assign traffic_tier2 0.2
+assign traffic_tier3 0.5
+assign traffic_tier4 0.8
+
+assign speed_tier1 0.3
+assign speed_tier2 0.4
+assign speed_tier3 0.6
+assign speed_tier4 1.0
+
+
+
+
+---context:way
+
+################################################################
+#   A bunch of helper-stuff before the actual waycost logic    #
+################################################################
+
+# For navigation hints
+assign priorityclassifier = (
+
+  if      ( highway=motorway                  ) then  30
+  else if ( highway=motorway_link             ) then  29
+  else if ( highway=trunk                     ) then  28
+  else if ( highway=trunk_link                ) then  27
+  else if ( highway=primary                   ) then  26
+  else if ( highway=primary_link              ) then  25
+  else if ( highway=secondary                 ) then  24
+  else if ( highway=secondary_link            ) then  23
+  else if ( highway=tertiary                  ) then  22
+  else if ( highway=tertiary_link             ) then  21
+  else if ( highway=unclassified              ) then  20
+  else if ( highway=residential|living_street ) then  16
+  else if ( highway=service                   ) then  14
+  else if ( tracktype=grade1                  ) then  6
+  else if ( highway=cycleway                  ) then  6
+  else if ( bicycle=designated                ) then  6
+  else if ( highway=bridleway                 ) then  4
+  else if ( highway=track|road|footway        ) then  4
+  else if ( highway=steps|path|pedestrian     ) then  2
+  else 0
+)
+
+# Determine if way is part of a cycleroute
+assign is_cycleroute
+	or route_bicycle_rcn=yes
+	or route_bicycle_lcn=yes
+	or route_bicycle_icn=yes
+	or route_bicycle_ncn=yes
+	or lcn=yes
+	or rcn=yes
+	ncn=yes
+	
+assign is_cycleroute_other
+	or route_bicycle_=yes
+	or route_bicycle_radweit=yes
+	or route_bicycle_rcn=proposed
+	or route_bicycle_lcn=proposed
+	or route_bicycle_icn=proposed
+	or route_bicycle_ncn=proposed
+	or lcn=proposed
+	or rcn=proposed
+	or ncn=proposed
+	or bicycle_road=yes
+	bicycle=designated
+
+
+# Determine if we are driving against a oneway
+# The logic should cover any oneway situation found in OSM data
+# Step1: Determine motor traffic flow direction
+# -1 means against OSM way direction, 0 means not a oneway, 1 means in OSM way direction, 2 means reversible
+assign traffic_direction_global
+	# roundabouts imply oneway, according to OSM wiki
+	if junction=roundabout then
+		if oneway=-1 then -1
+		else if oneway=reversible then 2
+		else 1
+	# motorways imply oneway, according to OSM wiki
+	else if highway=motorway|motorway_link then
+		if oneway=-1 then -1
+		else if oneway=reversible then 2
+		else 1
+	else if ( not oneway= ) then
+		if oneway=yes|1|true then 1
+		else if oneway=-1 then -1
+		else if oneway=reversible then 2
+		else 0
+	else 0
+# Step2: determine bike direction, relative to motor traffic
+# -1 means against, 0 means both simultaneously, 1 means with
+assign bike_direction_relative
+	# this seems to be a rare tagging problem, actually oneway should always refer to OSM way direction, not traffic direction
+	if or oneway:bicycle=opposite bicycle=opposite then -1
+	# we check for simultaneously a bike way opposite and one in traffic direction
+	else if and ( or cycleway:left=opposite|opposite_lane|opposite_track cycleway:right=opposite|opposite_lane|opposite_track ) ( or ( and ( not cycleway= ) ( not cycleway=no|opposite|opposite_lane|opposite_track|none|proposed ) ) or ( and ( not cycleway:right= ) ( not cycleway:right=opposite_lane|sidepath|no|opposite_track|opposite ) ) ( and ( not cycleway:left= ) ( not cycleway:left=opposite_lane|sidepath|no|opposite_track|opposite ) ) ) then 0
+	# there is a bike lane that allows us to cycle against oneway traffic
+	else if ( or cycleway=opposite|opposite_lane|opposite_track or cycleway:left=opposite|opposite_lane|opposite_track cycleway:right=opposite|opposite_lane|opposite_track ) then -1
+	# no specific information about cycling direction, we have to go with the motor traffic
+	else 1
+# Step3: determine bike direction, relative to the OSM way direction
+# -1 means against, 0 means both simultaneously, 1 means with
+assign bike_direction_global
+	# oneway:bicycle refers to the OSM way direction
+	if oneway:bicycle=no then 0
+	else if ( or cycleway:right:oneway=no cycleway:left:oneway=no ) then 0
+	else if oneway:bicycle=yes then 1
+	# we must go with the motor traffic
+	else if ( equal bike_direction_relative 1 ) then traffic_direction_global
+	# 1st leftover case: relative bike direction is against the motorcar traffic, we can go in both directions as cyclist
+	# 2nd leftover case: bikes can go in both directions anyways
+	else 0
+# Step4: use allowed bike directions and BRouter reversedirection to determine if we are going against a oneway
+assign badoneway =
+	# we can go either direction as cyclist, oneway is irrelevant
+	if ( equal bike_direction_global 0 ) then false
+	# bike direction is reversible, we are careful and avoid these ways
+	else if ( equal bike_direction_global 2 ) then true
+	# rest of the cases, compare bike direction to the brouter reversedirection value and see if we can use the way
+	else ( xor ( equal bike_direction_global 1 ) ( not reversedirection=yes ) )
+
+
+# Determine if there is a cycleway
+# The logic should cover any cycleway tag situation found in OSM data
+assign hascycleway
+	# cycleway in both directions
+	if and ( not cycleway= ) ( not cycleway=left|right|no|none|opposite|proposed|unknown ) then true
+	else if
+	and ( and ( not cycleway:left= ) ( not cycleway:left=opposite|opposite_lane|opposite_track|no|sidepath|unknown ) ) ( and ( not cycleway:right= ) ( not cycleway:right=opposite|opposite_lane|opposite_track|no|sidepath|unknown ) )
+	then true
+	else if ( or cycleway:right:oneway=no cycleway:left:oneway=no ) then true
+	# not a cycleway in any direction
+	else if
+	and ( or cycleway= cycleway=no|none|proposed|unknown ) and ( or cycleway:left= cycleway:left=no|sidepath|unknown ) ( or cycleway:right= cycleway:right=no|sidepath|unknown )
+	then false
+	# oneway street stuff
+	else if ( and oneway=yes|true|1|-1 reversedirection=yes ) then
+		if and oneway=yes|true|1 ( or cycleway=opposite_lane|opposite_track or cycleway:left=opposite_lane|opposite_track cycleway:right=opposite_lane|opposite_track ) then true
+		else if and oneway=-1 ( or ( and ( not cycleway= ) ( not cycleway=left|right|no|none|opposite|proposed|unknown ) ) or ( and ( not cycleway:left= ) ( not cycleway:left=opposite|opposite_lane|opposite_track|no|sidepath|unknown ) )  ( and ( not cycleway:right= ) ( not cycleway:right=opposite|opposite_lane|opposite_track|no|sidepath|unknown ) ) ) then true
+		else false
+	else if ( and oneway=yes|true|1|-1 ( not reversedirection=yes ) ) then
+		if and oneway=yes|true|1 ( or ( and ( not cycleway= ) ( not cycleway=left|right|no|none|opposite|proposed|unknown ) ) or ( and ( not cycleway:left= ) ( not cycleway:left=opposite|opposite_lane|opposite_track|no|sidepath|unknown ) )  ( and ( not cycleway:right= ) ( not cycleway:right=opposite|opposite_lane|opposite_track|no|sidepath|unknown ) ) ) then true
+		else if and oneway=-1 ( or cycleway=opposite_lane|opposite_track or cycleway:left=opposite_lane|opposite_track cycleway:right=opposite_lane|opposite_track ) then true
+		else false
+	# normal twoway street stuff with cycleway on only one side of the road
+	else if xor reversedirection=yes lefthandtraffic then
+		if and ( not cycleway:left= ) ( not cycleway:left=opposite|opposite_lane|opposite_track|no|sidepath|unknown ) then true
+		else if cycleway=left then true
+		else false
+	else if xor ( not reversedirection=yes ) lefthandtraffic then
+		if and ( not cycleway:right= ) ( not cycleway:right=opposite|opposite_lane|opposite_track|no|sidepath|unknown ) then true
+		else if cycleway=right then true
+		else false
+	else false
+
+
+# Determine access properties for vehicles
+assign any_motoraccess  
+	if motorcar=yes|destination|designated|permissive|hov|psv then true
+	else if motor_vehicle=yes|destination|designated|permissive then true
+	else if motorcycle=yes|destination|designated|permissive then true
+	else if and vehicle=yes|destination|designated|permissive not motor_vehicle=no|private|agricultural then true
+	else if hgv=yes|destination|designated|permissive then true
+	else if and access=yes|destination|designated|permissive|hov|psv not motor_vehicle=no|private|agricultural then true
+	else if motor_vehicle=no|private|agricultural then false
+	else if access=no|private|agricultural then false
+	else if (
+		or highway=residential|service|unclassified|road|living_street|rest_area|services
+		or highway=trunk|trunk_link|primary|primary_link|secondary|secondary_link|tertiary|tertiary_link
+		highway=driveway|mini_roundabout|turning_loop|unsurfaced )
+		then true
+	else false
+
+assign bikeaccess
+	if ( not route=ferry ) then
+		if or highway=construction not construction= then false
+		else if highway=steps then false
+		else if bicycle=yes|designated|permissive|mtb then true
+		else if and bicycle=destination|dismount looseaccessrules then true
+		else if not bicycle= then false
+		else if vehicle=yes|permissive|designated then true
+		else if and vehicle=destination|agricultural|psv looseaccessrules then true
+		else if not vehicle= then false
+		else if and indoor=yes not highway=cycleway then false
+		else if access=yes|permissive|designated then true
+		else if and access=destination|agricultural|customers|delivery|psv looseaccessrules then true
+		else if not access=  then false
+		# no explicit access rules, make assumptions based on waytype
+		else if
+			or highway=residential|service|unclassified|road|living_street|rest_area|services
+			or highway=trunk|trunk_link|primary|primary_link|secondary|secondary_link|tertiary|tertiary_link
+			or highway=driveway|mini_roundabout|turning_loop
+			or highway=track|path|cycleway|crossing|byway|unsurfaced
+			( and highway=footway|pedestrian ( or is_cycleroute is_cycleroute_other ) )
+			then true
+		else false
+	else false
+
+assign footaccess
+	if ( not route=ferry ) then
+		if or highway=construction not construction= then false
+		else if and highway=steps not allow_steps then false
+		else if and highway=steps and allow_steps bicycle=yes|designated|permissive|mtb then true
+		else if and highway=steps and allow_steps and bicycle=destination looseaccessrules then true
+		else if foot=yes|designated|permissive then true
+		else if and foot=destination looseaccessrules then true
+		else if not foot= then false
+		else if bicycle=dismount then true
+		else if access=yes|permissive|designated then true
+		else if and access=destination|agricultural|customers|delivery looseaccessrules then true
+		else if not access= then false
+		# no explicit access rules, make assumptions based on waytype
+		else if
+			or highway=residential|service|unclassified|road|living_street|rest_area|services
+			or highway=trunk|trunk_link|primary|primary_link|secondary|secondary_link|tertiary|tertiary_link
+			or highway=driveway|mini_roundabout|turning_loop
+			or highway=track|path|crossing|byway|unsurfaced
+			or highway=footway|pedestrian|corridor|platform
+			and highway=steps allow_steps
+			then true
+		else false
+	else false
+
+assign ferryaccess
+	if and route=ferry and ( not bicycle=no|private|unknown ) allow_ferries then true
+	else false
+
+
+# Needed to trigger initialcost, any fantasy value works as long as they differ for waytypes
+# Value chances when going from one to another waytype means initialcost is added
+assign initialclassifier_waytype
+	if highway=residential then 10
+	else if highway=service|rest_area|services|driveway|mini_roundabout|turning_loop then 12
+	else if highway=track|path|byway|unsurfaced then 13
+	else if highway=footway|pedestrian then 14
+	else if highway=road|unclassified then 15
+	else if highway=tertiary then 8
+	else if highway=secondary then 6
+	else if highway=primary then 4
+	else if highway=cycleway then 1
+	else if highway=living_street then 11
+	else if highway=steps then 17
+	else if highway=trunk then 2
+	else if highway=trunk_link then 3
+	else if highway=primary_link then 5
+	else if highway=secondary_link then 7
+	else if highway=tertiary_link then 9
+	else if highway=crossing then 16
+	else if highway=corridor then 18
+	else 19
+
+# we must add initialcost when access on the same waytype changes as well
+# for example a highway=footway containing segments with different bike access
+assign initialclassifier
+	if bikeaccess then initialclassifier_waytype
+	else add initialclassifier_waytype 20
+
+
+################################################################
+#  Calculation of contributing factors to waycost begins here  #
+################################################################
+
+################################################################
+#   Determine which roads can even be considered for routing   #
+################################################################
+
+assign access_cost
+	if ferryaccess then 1
+	else if bikeaccess then 0
+	# pushing the bike 
+	else if footaccess then bikepushcost
+	else avoidway
+
+
+################################################################
+#                  Determine road condition                    #
+#                                                              #
+#     cycleway:surface gets special treatment, as it           #
+#     refers to a (physically) different way                   #
+#                                                              #
+#     For every tag indicating condition (smoothness etc)      #
+#     a bracket with range from minimum possible (minbrk)      #
+#     to maximum possible (maxbrk) and the most likely         #
+#     (exp) penalty is specified.                              #
+#     These multiple brackets are then merged to one.          #
+#     For example [0...0.8...1.8] and [0.5...1.0...2.0]        #
+#     is merged to [0.5...0.9...1.8] giving 0.9 penalty        #
+################################################################
+
+
+# cycleway:surface treatment 
+assign cycleway_smoothness
+	if ( and hascycleway not cycleway:surface= ) then
+		if and cycleway:surface=unpaved is_wet then 2.0
+		else if cycleway:surface=unpaved then 1.0
+		else if cycleway:surface=paved then 0.3
+		else if cycleway:surface=asphalt then 0.0
+		else if cycleway:surface=concrete then 0.1
+		else if cycleway:surface=paving_stones then 0.2
+		# gravel is often confused with fine_gravel, assume gravel means fine gravel on cycleways
+		else if and cycleway:surface=compacted|fine_gravel|gravel is_wet then 0.5
+		else if cycleway:surface=compacted|fine_gravel|gravel then 0.3
+		else if and cycleway:surface=sett|cobblestone is_wet then 2.0
+		else if cycleway:surface=sett|cobblestone then 1.2
+		else 1.0
+	else -1.0
+
+
+assign minbrk -0.2
+assign maxbrk add avoidway 1
+assign expcurrent -1
+assign expavgnum 0
+
+# smoothness value is the best option to determine road condition
+assign new_minbrk
+	if ( not smoothness= ) then
+		if smoothness=excellent then -0.2
+		else if smoothness=very_good then -0.1
+		else if smoothness=good then 0.0
+		else if smoothness=intermediate|medium then 0.2
+		else if smoothness=bad|robust_wheels|poor then 0.6
+		else if smoothness=very_bad|high_clearance|rough then 1.5
+		else if smoothness=horrible|off_road_wheels then 6.0
+		else if smoothness=very_horrible|impassable then bikepushcost
+		else -1
+	else -1
+assign new_maxbrk
+	if ( not smoothness= ) then
+		if smoothness=excellent then -0.1
+		else if smoothness=very_good then 0.1
+		else if smoothness=good then 0.3
+		else if smoothness=intermediate|medium then 0.8
+		else if smoothness=bad|robust_wheels|poor then 3.0
+		else if smoothness=very_bad|high_clearance|rough then 8.0
+		else if smoothness=horrible|off_road_wheels then bikepushcost
+		else if smoothness=very_horrible|impassable then avoidway
+		else add avoidway 2
+	else add avoidway 2
+assign new_exp
+	if ( not smoothness= ) then
+		if smoothness=excellent then -0.2
+		else if smoothness=very_good then -0.1
+		else if smoothness=good then 0.0
+		else if and smoothness=intermediate|medium is_wet then 0.5
+		else if smoothness=intermediate|medium then 0.3
+		else if and smoothness=bad|robust_wheels|poor is_wet then 2.0
+		else if smoothness=bad|robust_wheels|poor then 1.2
+		else if and smoothness=very_bad|high_clearance|rough is_wet then 5.0
+		else if smoothness=very_bad|high_clearance|rough then 2.0
+		else if and smoothness=horrible|off_road_wheels is_wet then bikepushcost
+		else if smoothness=horrible|off_road_wheels then 8.0
+		else if and smoothness=very_horrible|impassable is_wet then avoidway
+		else if smoothness=very_horrible|impassable then bikepushcost
+		else -1
+	else -1
+	
+# merge the min and max ranges of the existing and new bracket
+assign minbrk max minbrk new_minbrk
+assign minmax min maxbrk new_maxbrk
+assign maxmax max maxbrk new_maxbrk
+assign maxbrk if equal minmax minbrk then minmax else if greater minmax minbrk then minmax else maxmax
+# merge the expectation values of the existing and new bracket
+# workaround because division is missing
+assign expavgmulfactor
+	if equal expavgnum 0 then 1
+	else if equal expavgnum 1 then 0.5
+	else if equal expavgnum 2 then 0.3333
+	else if equal expavgnum 3 then 0.25
+	else if equal expavgnum 4 then 0.2
+	else if equal expavgnum 5 then 0.1667
+	else 0.1429
+assign expcopy expcurrent
+assign expcurrent
+	# exp 1 is outside of the bracket
+	if or ( lesser expcurrent minbrk ) ( greater expcurrent maxbrk )
+		# exp 2 is outside the bracket, we assume the middle of the bracket
+		then if or ( lesser new_exp minbrk ) ( greater new_exp maxbrk ) then multiply 0.5 add minbrk maxbrk
+		# exp 2 is inside the bracket, we use it
+		else new_exp	
+	# exp 1 is inside the bracket
+	else
+		# exp 2 is outside the bracket, we use exp 1
+		if or ( lesser new_exp minbrk ) ( greater new_exp maxbrk ) then expcurrent
+		# both exps are inside the bracket, use the middle values of all exps
+		else multiply ( add ( multiply expcurrent expavgnum ) new_exp ) expavgmulfactor
+assign expavgnum
+	# exp 1 and 2 are inside the bracket
+	if and ( not or ( lesser expcopy minbrk ) ( greater expcopy maxbrk ) ) ( not or ( lesser new_exp minbrk ) ( greater new_exp maxbrk ) ) then add expavgnum 1
+	else if equal new_exp -1 then expavgnum
+	else 1
+
+# tracktype classification allows to determine approximate smoothness too
+assign new_minbrk
+	if ( not tracktype= ) then
+		if tracktype=grade1 then -0.2
+		else if tracktype=grade2 then 0.2
+		else if tracktype=grade3 then 0.4
+		else if tracktype=grade4 then 0.5
+		else if tracktype=grade5 then 1.0
+		else -1
+	else if 4wd_only=yes|recommended then 1.0
+	else -1
+assign new_maxbrk
+	if ( not tracktype= ) then
+		if tracktype=grade1 then 0.4
+		else if tracktype=grade2 then 0.6
+		else if tracktype=grade3 then 1.0
+		else if tracktype=grade4 then 2.0
+		else if tracktype=grade5 then bikepushcost
+		else add avoidway 2
+	else if 4wd_only=yes|recommended then bikepushcost
+	else add avoidway 2
+assign new_exp
+	if ( not tracktype= ) then
+		if tracktype=grade1 then 0.1
+		else if and tracktype=grade2 is_wet then 0.6
+		else if tracktype=grade2 then 0.3
+		else if and tracktype=grade3 is_wet then 1.2
+		else if tracktype=grade3 then 0.5
+		else if and tracktype=grade4 is_wet then 2.5
+		else if tracktype=grade4 then 1.2
+		else if tracktype=grade5 then bikepushcost
+		else -1
+	else if and 4wd_only=yes|recommended is_wet then bikepushcost
+	else if 4wd_only=yes|recommended then 2.0
+	else -1
+# merge the min and max ranges of the existing and new bracket
+assign minbrk max minbrk new_minbrk
+assign minmax min maxbrk new_maxbrk
+assign maxmax max maxbrk new_maxbrk
+assign maxbrk if equal minmax minbrk then minmax else if greater minmax minbrk then minmax else maxmax
+# merge the expectation values of the existing and new bracket
+# workaround because division is missing
+assign expavgmulfactor
+	if equal expavgnum 0 then 1
+	else if equal expavgnum 1 then 0.5
+	else if equal expavgnum 2 then 0.3333
+	else if equal expavgnum 3 then 0.25
+	else if equal expavgnum 4 then 0.2
+	else if equal expavgnum 5 then 0.1667
+	else 0.1429
+assign expcopy expcurrent
+assign expcurrent
+	# exp 1 is outside of the bracket
+	if or ( lesser expcurrent minbrk ) ( greater expcurrent maxbrk )
+		# exp 2 is outside the bracket, we assume the middle of the bracket
+		then if or ( lesser new_exp minbrk ) ( greater new_exp maxbrk ) then multiply 0.5 add minbrk maxbrk
+		# exp 2 is inside the bracket, we use it
+		else new_exp	
+	# exp 1 is inside the bracket
+	else
+		# exp 2 is outside the bracket, we use exp 1
+		if or ( lesser new_exp minbrk ) ( greater new_exp maxbrk ) then expcurrent
+		# both exps are inside the bracket, use the middle values of all exps
+		else multiply ( add ( multiply expcurrent expavgnum ) new_exp ) expavgmulfactor
+assign expavgnum
+	# exp 1 and 2 are inside the bracket
+	if and ( not or ( lesser expcopy minbrk ) ( greater expcopy maxbrk ) ) ( not or ( lesser new_exp minbrk ) ( greater new_exp maxbrk ) ) then add expavgnum 1
+	else if equal new_exp -1 then expavgnum
+	else 1
+
+
+# the surface is great indicator for smoothness
+assign new_minbrk
+	if ( not surface= ) then
+		if surface=unpaved then 0.4
+		else if surface=paved then -0.2
+		else if surface=asphalt then -0.2
+		else if and surface=concrete ( and not concrete=plates not concrete=lanes ) then -0.2
+		else if ( or concrete=lanes concrete=plates ) then 0.3
+		else if surface=paving_stones then 0.1
+		else if surface=compacted|fine_gravel then 0.2
+		else if surface=metal then 0.0
+		else if surface=dirt|earth|ground then 0.8
+		# gravel is often confused with fine_gravel, assume gravel means fine gravel on cycle/car routes
+		else if and surface=gravel ( or is_cycleroute or is_cycleroute_other or highway=cycleway any_motoraccess ) then 0.2
+		else if surface=gravel then 0.2
+		else if surface=grass_paver then 0.4
+		else if surface=pebblestone then 0.4
+		else if surface=sett|cobblestone then 0.8
+		else if surface=grass then 0.8
+		else if surface=wood then 0.8
+		else if surface=mud|clay|sand then 8.0
+		else if highway=unsurfaced then 0.4
+		else -1
+	else -1
+assign new_maxbrk
+	if ( not surface= ) then
+		if surface=unpaved then bikepushcost
+		else if surface=paved then 3.0
+		else if surface=asphalt then 1.0
+		else if and surface=concrete ( and not concrete=plates not concrete=lanes ) then 1.0
+		else if ( or concrete=lanes concrete=plates ) then 1.5
+		else if surface=paving_stones then 0.6
+		else if surface=compacted|fine_gravel then 1.0
+		else if surface=metal then 0.8
+		else if surface=dirt|earth|ground then bikepushcost
+		# gravel is often confused with fine_gravel, assume gravel means fine gravel on cycle/car routes
+		else if and surface=gravel ( or is_cycleroute or is_cycleroute_other or highway=cycleway any_motoraccess ) then 1.0
+		else if surface=gravel then avoidway
+		else if surface=grass_paver then 0.8
+		else if surface=pebblestone then 3.0
+		else if surface=sett|cobblestone then 5.0
+		else if surface=grass then 3.0
+		else if surface=wood then 3.0
+		else if surface=mud|clay|sand then avoidway
+		else add avoidway 2
+	else if highway=unsurfaced then bikepushcost 
+	else add avoidway 2
+assign new_exp
+	if ( not surface= ) then
+		if and surface=unpaved is_wet then 2.0
+		else if surface=unpaved then 1.0
+		else if surface=paved then 0.3
+		else if surface=asphalt then 0.0
+		else if and surface=concrete ( and not concrete=plates not concrete=lanes ) then 0.1
+		else if ( or concrete=lanes concrete=plates ) then 0.4
+		else if surface=paving_stones then 0.2
+		else if and surface=compacted|fine_gravel is_wet then 0.5
+		else if surface=compacted|fine_gravel then 0.3
+		else if and surface=metal is_wet then 0.8
+		else if surface=metal then 0.3
+		else if and surface=dirt|earth|ground is_wet then 5.0
+		else if surface=dirt|earth|ground then 1.0
+		# gravel is often confused with fine_gravel, assume gravel means fine gravel on cycle/car routes
+		else if and surface=gravel and ( or is_cycleroute or is_cycleroute_other or highway=cycleway any_motoraccess ) is_wet then 0.5
+		else if and surface=gravel ( or is_cycleroute or is_cycleroute_other or highway=cycleway any_motoraccess ) then 0.3
+		else if surface=gravel then 3.0
+		else if and surface=grass_paver is_wet then 0.6
+		else if surface=grass_paver then 0.4
+		else if and surface=pebblestone is_wet then 1.5
+		else if surface=pebblestone then 0.6
+		else if and surface=sett|cobblestone is_wet then 2.0
+		else if surface=sett|cobblestone then 1.2
+		else if and surface=grass is_wet then 3.0
+		else if surface=grass then 1.5
+		else if surface=wood then 1.0
+		else if and surface=mud|clay|sand is_wet then avoidway
+		else if surface=mud|clay|sand then 8.0
+		else -1
+	else if and highway=unsurfaced is_wet then 2.0
+	else if highway=unsurfaced then 1.0
+	else -1
+
+# merge the min and max ranges of the existing and new bracket
+assign minbrk max minbrk new_minbrk
+assign minmax min maxbrk new_maxbrk
+assign maxmax max maxbrk new_maxbrk
+assign maxbrk if equal minmax minbrk then minmax else if greater minmax minbrk then minmax else maxmax
+# merge the expectation values of the existing and new bracket
+# workaround because division is missing
+assign expavgmulfactor
+	if equal expavgnum 0 then 1
+	else if equal expavgnum 1 then 0.5
+	else if equal expavgnum 2 then 0.3333
+	else if equal expavgnum 3 then 0.25
+	else if equal expavgnum 4 then 0.2
+	else if equal expavgnum 5 then 0.1667
+	else 0.1429
+assign expcopy expcurrent
+assign expcurrent
+	# exp 1 is outside of the bracket
+	if or ( lesser expcurrent minbrk ) ( greater expcurrent maxbrk )
+		# exp 2 is outside the bracket, we assume the middle of the bracket
+		then if or ( lesser new_exp minbrk ) ( greater new_exp maxbrk ) then multiply 0.5 add minbrk maxbrk
+		# exp 2 is inside the bracket, we use it
+		else new_exp	
+	# exp 1 is inside the bracket
+	else
+		# exp 2 is outside the bracket, we use exp 1
+		if or ( lesser new_exp minbrk ) ( greater new_exp maxbrk ) then expcurrent
+		# both exps are inside the bracket, use the middle values of all exps
+		else multiply ( add ( multiply expcurrent expavgnum ) new_exp ) expavgmulfactor
+assign expavgnum
+	# exp 1 and 2 are inside the bracket
+	if and ( not or ( lesser expcopy minbrk ) ( greater expcopy maxbrk ) ) ( not or ( lesser new_exp minbrk ) ( greater new_exp maxbrk ) ) then add expavgnum 1
+	else if equal new_exp -1 then expavgnum
+	else 1
+
+# fallback to mountainbike scale
+assign new_minbrk
+	if or ( not mtb:scale= ) ( not mtb:scale:uphill= ) then
+		if or mtb:scale=1 mtb:scale:uphill=1 then 1.0
+		else if or mtb:scale=0 mtb:scale:uphill=0 then -0.2
+		else avoidway
+	else -1
+assign new_maxbrk
+	if or ( not mtb:scale= ) ( not mtb:scale:uphill= ) then
+		if or mtb:scale=1 mtb:scale:uphill=1 then bikepushcost
+		else if or mtb:scale=0 mtb:scale:uphill=0 then 2.0
+		else avoidway
+	else add avoidway 2
+assign new_exp
+	if or ( not mtb:scale= ) ( not mtb:scale:uphill= ) then
+		if and ( or mtb:scale=1 mtb:scale:uphill=1 ) is_wet then bikepushcost
+		else if or mtb:scale=1 mtb:scale:uphill=1 then 3.0
+		else if or mtb:scale=0 mtb:scale:uphill=0 then 1.2
+		else avoidway
+	else -1
+
+# merge the min and max ranges of the existing and new bracket
+assign minbrk max minbrk new_minbrk
+assign minmax min maxbrk new_maxbrk
+assign maxmax max maxbrk new_maxbrk
+assign maxbrk if equal minmax minbrk then minmax else if greater minmax minbrk then minmax else maxmax
+# merge the expectation values of the existing and new bracket
+# workaround because division is missing
+assign expavgmulfactor
+	if equal expavgnum 0 then 1
+	else if equal expavgnum 1 then 0.5
+	else if equal expavgnum 2 then 0.3333
+	else if equal expavgnum 3 then 0.25
+	else if equal expavgnum 4 then 0.2
+	else if equal expavgnum 5 then 0.1667
+	else 0.1429
+assign expcopy expcurrent
+assign expcurrent
+	# exp 1 is outside of the bracket
+	if or ( lesser expcurrent minbrk ) ( greater expcurrent maxbrk )
+		# exp 2 is outside the bracket, we assume the middle of the bracket
+		then if or ( lesser new_exp minbrk ) ( greater new_exp maxbrk ) then multiply 0.5 add minbrk maxbrk
+		# exp 2 is inside the bracket, we use it
+		else new_exp	
+	# exp 1 is inside the bracket
+	else
+		# exp 2 is outside the bracket, we use exp 1
+		if or ( lesser new_exp minbrk ) ( greater new_exp maxbrk ) then expcurrent
+		# both exps are inside the bracket, use the middle values of all exps
+		else multiply ( add ( multiply expcurrent expavgnum ) new_exp ) expavgmulfactor
+assign expavgnum
+	# exp 1 and 2 are inside the bracket
+	if and ( not or ( lesser expcopy minbrk ) ( greater expcopy maxbrk ) ) ( not or ( lesser new_exp minbrk ) ( greater new_exp maxbrk ) ) then add expavgnum 1
+	else if equal new_exp -1 then expavgnum
+	else 1
+
+# fallback to hiking route classification
+assign new_minbrk
+	if ( not sac_scale= ) then
+		if sac_scale=hiking then 0.0  
+		else avoidway
+	else -1
+assign new_maxbrk
+	if ( not sac_scale= ) then
+		if sac_scale=hiking then bikepushcost 
+		else avoidway
+	else add avoidway 2
+assign new_exp
+	if ( not sac_scale= ) then
+		if sac_scale=hiking then 1.5
+		else avoidway
+	else -1
+
+# merge the min and max ranges of the existing and new bracket
+assign minbrk max minbrk new_minbrk
+assign minmax min maxbrk new_maxbrk
+assign maxmax max maxbrk new_maxbrk
+assign maxbrk if equal minmax minbrk then minmax else if greater minmax minbrk then minmax else maxmax
+# merge the expectation values of the existing and new bracket
+# workaround because division is missing
+assign expavgmulfactor
+	if equal expavgnum 0 then 1
+	else if equal expavgnum 1 then 0.5
+	else if equal expavgnum 2 then 0.3333
+	else if equal expavgnum 3 then 0.25
+	else if equal expavgnum 4 then 0.2
+	else if equal expavgnum 5 then 0.1667
+	else 0.1429
+assign expcopy expcurrent
+assign expcurrent
+	# exp 1 is outside of the bracket
+	if or ( lesser expcurrent minbrk ) ( greater expcurrent maxbrk )
+		# exp 2 is outside the bracket, we assume the middle of the bracket
+		then if or ( lesser new_exp minbrk ) ( greater new_exp maxbrk ) then multiply 0.5 add minbrk maxbrk
+		# exp 2 is inside the bracket, we use it
+		else new_exp	
+	# exp 1 is inside the bracket
+	else
+		# exp 2 is outside the bracket, we use exp 1
+		if or ( lesser new_exp minbrk ) ( greater new_exp maxbrk ) then expcurrent
+		# both exps are inside the bracket, use the middle values of all exps
+		else multiply ( add ( multiply expcurrent expavgnum ) new_exp ) expavgmulfactor
+assign expavgnum
+	# exp 1 and 2 are inside the bracket
+	if and ( not or ( lesser expcopy minbrk ) ( greater expcurrent maxbrk ) ) ( not or ( lesser new_exp minbrk ) ( greater new_exp maxbrk ) ) then add expavgnum 1
+	else if equal new_exp -1 then expavgnum
+	else 1
+
+assign smoothness_cost if ( not embedded_rails= ) then 0.5 else 0.0
+assign smoothness_cost  add smoothness_cost
+	# we are on a cycleway that is separately described from the main highway
+	if greater cycleway_smoothness -1.0 then cycleway_smoothness
+	# the smoothness has been determined by smoothness/surface/tracktype etc keys
+	else if greater expavgnum 0 then expcurrent
+	# no good indication of smoothness, fallback to make rough assumptions based on waytype
+	# waytypes that are likely in good condition, but add a little cost for unknown condition
+	else if and ( not is_cycleroute ) (
+		or highway=residential
+		or highway=service
+		or highway=unclassified
+		or highway=living_street
+		or highway=crossing
+		or highway=road
+		or highway=rest_area
+		or highway=services
+		or highway=driveway
+		or highway=mini_roundabout
+		highway=turning_loop )
+		then 0.1
+	# waytypes that are almost certainly in good condition
+	else if and or is_cycleroute is_cycleroute_other (
+		or highway=residential
+		or highway=service
+		or highway=unclassified
+		or highway=living_street
+		or highway=crossing
+		or highway=road
+		or highway=rest_area
+		or highway=services 
+		or highway=driveway
+		or highway=mini_roundabout
+		highway=turning_loop )
+		then 0.0
+	else if (
+		or highway=tertiary|tertiary_link
+		or highway=secondary|secondary_link
+		or highway=primary|primary_link
+		or highway=motorway|motorway_link
+		or highway=trunk|trunk_link
+		highway=cycleway )
+		then 0.0
+	# footways are expected to be ok
+	else if highway=footway|pedestrian|platform then 0.1
+	# probably not too bad smoothness when dedicated for bike
+	else if or is_cycleroute is_cycleroute_other then 0.2
+	# tracks are usualy slightly compacted, paths often grass or loose ground
+	else if and highway=track|byway is_wet then 3.0
+	else if highway=track|byway then 1.2
+	else if and highway=path is_wet then 5.0
+	else if highway=path then 2.0
+	else 2.0
+
+
+################################################################
+#                       Traffic Penalty                        #
+################################################################
+
+assign low_traffic
+	if bicycle=designated then true
+	else if or highway=living_street living_street=yes then true
+	else if bicycle_road=yes then true
+	else if motorcar=yes|permissive|designated then false
+	else if motorcycle=yes|permissive|designated then false
+	else if hgv=yes|permissive|delivery|destination|designated then false
+	else if motor_vehicle=yes|permissive|designated then false
+	else if motor_vehicle=no|private|agricultural|destination|emergency then false
+	else if vehicle=yes|permissive|designated then false
+	else if vehicle=no|private|agricultural|destination then true
+	else if access= then false
+	else if access=yes|permissive then false
+	else true
+	
+
+assign traffic_cost
+	# many pedestrians but no cars expected
+	if or and highway=pedestrian ( not segregated=yes )
+		( highway=platform|corridor )
+		then traffic_tier1
+	# anything without motor vehicles is fine
+	else if not any_motoraccess then 0.0
+	else if low_traffic then 0.0
+	# 3+ lanes = lots of expected traffic
+	else if and ( and oneway=yes|true|1|-1 lanes=3|4|5|6|7 ) ( not hascycleway ) then traffic_tier4
+	else if and lanes=5|6|7  ( not hascycleway ) then traffic_tier4
+	# no one likes HGVs
+	else if hgv=designated then traffic_tier4
+	# wild traffic guesses based on roadtype only
+	else if not hascycleway then
+		if highway=motorway|motorway_link|trunk|trunk_link|primary|primary_link then traffic_tier4
+		else if highway=secondary|secondary_link|tertiary|tertiary_link then traffic_tier3
+		else if highway=residential|mini_roundabout|road|unclassified then traffic_tier2
+		else 0.0
+	else if hascycleway then
+		if highway=motorway|motorway_link|trunk|trunk_link|primary|primary_link|secondary|secondary_link then traffic_tier2
+		else if highway=tertiary|tertiary_link then traffic_tier1
+		else 0.0
+	else 0.0
+
+
+################################################################
+#                       Maxspeed Penalty                       #
+################################################################
+
+assign maxspeed_cost_raw
+	if ( or not maxspeed= or not maxspeed:forward= not maxspeed:backward= ) then
+		if ( or maxspeed=70|80 or maxspeed:forward=70|80 maxspeed:backward=70|80 ) then speed_tier1
+		else if ( or maxspeed=90|100|rural or maxspeed:forward=90|100|rural maxspeed:backward=90|100|rural ) then speed_tier2
+		else if ( or maxspeed=110 or maxspeed:forward=110 maxspeed:backward=110 ) then speed_tier3
+		else if ( or maxspeed=120|130 or maxspeed:forward=120|130 maxspeed:backward=120|130 ) then speed_tier4
+		else 0.0
+	else if ( not highway= ) then
+		# very rough guess unfortunately
+		if highway=trunk|trunk_link then speed_tier3
+		else if highway=primary|primary_link then speed_tier2
+		else if highway=secondary|secondary_link then speed_tier2
+		else 0.0
+	else 0.0
+
+# if the road has a cycleway anything up to speed tier 2 gets no penalty
+assign maxspeed_cost if hascycleway then ( max 0.0 ( sub maxspeed_cost_raw speed_tier2 ) )  else maxspeed_cost_raw
+
+
+################################################################
+#                          onewaycost                          #
+################################################################
+
+assign oneway_cost =
+	if badoneway then
+		if greater traffic_cost traffic_tier2 then 20
+		else bikepushcost
+	else 0
+
+
+################################################################
+#                     Inital and Turn Cost                     #
+################################################################
+
+assign initialcost_waypreference
+	# ways with lots of traffic mean we have to be slow when going onto them
+	if greater traffic_cost traffic_tier2 then 100
+	else 25
+
+assign initialcost
+	if ferryaccess then 30000
+	# getting on and off the bike is a fixed effort for each part of the way we need to walk
+	else if and ( not bikeaccess ) footaccess then ( add initialcost_waypreference 400 )
+	else initialcost_waypreference
+
+assign turncost
+	# unfortunately footways are often drawn in odd shapes in OSM not representing how you really drive
+	if highway=footway then 0
+	# we are walking, no cost for turning
+	else if ( not bikeaccess ) then 0
+	# we are on a crappy way and slow
+	else if ( greater smoothness_cost 1.0 ) then 10
+	else if ( greater smoothness_cost 0.4 ) then 30
+	# we are on an ok way and probably fast enough that turning is annoying
+	else 60
+
+
+################################################################
+#      Roads that are part of a cycleroute are preferred       #
+################################################################
+
+# We go 20% extra way, if it means we are on an official cycleroute
+# and 15% for proposed cycle routes or bicycle=designated ways
+assign cycleroute_cost
+	if class:bicycle= then if is_cycleroute then 0.0 else if is_cycleroute_other then 0.15 else 0.20
+	else if class:bicycle=-3 then 3.0
+	else if class:bicycle=-2 then 1.0
+	else if class:bicycle=-1 then 0.4
+	else if class:bicycle=3 then -0.4
+	else if class:bicycle=2 then -0.2
+	else if class:bicycle=1 then 0.0
+	else 0.0
+
+
+################################################################
+#               Final Way Costfactor Calculation               #
+################################################################
+
+assign costfactor
+	if ferryaccess then access_cost
+	else max ( add 1.0 add access_cost add smoothness_cost add traffic_cost add maxspeed_cost add oneway_cost cycleroute_cost ) 1.0
+
+
+
+
+---context:node
+
+################################################################
+#   A bunch of helper-stuff before the actual nodecost logic   #
+################################################################
+
+assign bikeaccess
+	if highway=steps then false
+	else if bicycle=yes|designated|permissive then true
+	else if and bicycle=destination|dismount looseaccessrules then true
+	else if not bicycle= then false
+	else if vehicle=yes|permissive|designated then true
+	else if and vehicle=destination|agricultural looseaccessrules then true
+	else if not vehicle= then false
+	else if access=yes|permissive|designated then true
+	else if and access=destination|agricultural looseaccessrules then true
+	else if not access= then false
+	else if barrier=gate|fence|yes|wall|hedge|obstacle|spikes|door|barrier|debris|ditch|turnstile|stile|swing_gate|hampshire_gate|full-height_turnstile|windfall|footgate|lift_gate|cycle_barrier|toll_booth|border_control|chain|fallen_tree|checkpoint|rope|log|kissing_gate|bump_gate|horse_stile|tree|motorcycle_barrier|guard_rail|bar|jersey_barrier|unknown then false
+	else true
+
+assign footaccess
+	if and highway=steps not allow_steps then false
+	else if and highway=steps and allow_steps bicycle=yes|designated|permissive then true
+	else if and highway=steps and allow_steps and bicycle=destination|dismount looseaccessrules then true
+	else if foot=yes|designated|permissive then true
+	else if and foot=destination looseaccessrules then true
+	else if not foot= then false
+	else if access=yes|permissive|designated then true
+	else if and access=destination|agricultural looseaccessrules then true
+	else if not access= then false
+	else if barrier=gate|fence|yes|wall|hedge|obstacle|spikes|door|barrier|debris|ditch|turnstile|stile|swing_gate|hampshire_gate|full-height_turnstile|windfall|footgate|unknown then false
+	else if bicycle=dismount then true
+	else true
+
+################################################################
+# Calculation of contributing factors to nodecost begins here  #
+################################################################
+
+################################################################
+#             Determine which points influence us              #
+################################################################
+
+assign access_cost
+	if and crossing=no not way:any_motoraccess then 1000
+	# even if we can pass a barrier, we likely must slow down a bit
+	else if ( and bikeaccess ( not barrier= ) ) then 25
+	else if bikeaccess then 0
+	# getting on and off the bike is a fixed cost
+	else if footaccess then 400
+	else avoidnode
+
+
+################################################################
+#      Add costs for assorted things like traffic lights       #
+################################################################
+
+# Missing: traffic sign direction, we are limited by BRouter data here
+assign node_cost =
+	if highway=traffic_signals then 120
+	else if crossing=traffic_signals then 120
+	else if railway=signal then 150
+	else if railway=level_crossing then 80
+	else if railway=crossing then 80
+	else if highway=stop|give_way  then 25
+	else if highway=traffic_calming then 50
+	else if crossing=zebra then 50
+	else if ford=yes then 500
+	else 0
+
+
+################################################################
+#               Final Node Costfactor Calculation              #
+################################################################
+
+assign initialcost add access_cost node_cost
