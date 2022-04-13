@@ -14,6 +14,8 @@ installbrouterR <- function(installationFolderPath=NULL){
     path <- paths[i]
     if(any(list.files(path)=="brouterR")){
 
+      packagePath <- paste(path, "brouterR", sep="/")
+      list.files(packagePath)
 
     }
   }
