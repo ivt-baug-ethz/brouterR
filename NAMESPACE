@@ -2,10 +2,7 @@
 
 export()
 export(calculateAggrMetrics)
-export(calculateAggrMetricsForParallel)
-export(calculateAggrMetricsForParallelOLDVERSION)
 export(installbrouterR)
-export(killServers)
 export(listBasedRouteCalculator)
 export(parallelRoutesCalculator)
 export(setServers)
