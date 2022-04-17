@@ -13,14 +13,15 @@
 #' @param
 #' @return
 #' @export
+#' @import leaflet
 #'
 #' @examples
 #'
 #'
 plotRoute <- function(route=NULL, plotOnViewer=TRUE, backgroundTile=providers$OpenStreetMap, tileOpacity=0.8, routeOpacity=0.8, routeColour="blue", routeWeight=2){
-  map <- leaflet() %>%
-  addProviderTiles(backgroundTile, options = providerTileOptions(opacity = tileOpacity)) %>%
-  addPolylines(data=st_zm(route), opacity = routeOpacity, color = routeColour, weight=routeWeight)
+  map <- leaflet::leaflet() %>%
+    leaflet::addProviderTiles(backgroundTile, options = providerTileOptions(opacity = tileOpacity)) %>%
+    leaflet::addPolylines(data=st_zm(route), opacity = routeOpacity, color = routeColour, weight=routeWeight)
 
   if(plotOnViewer==TRUE){
     map
