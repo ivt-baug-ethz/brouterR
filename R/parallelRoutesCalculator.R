@@ -27,9 +27,9 @@ parallelRoutesCalculator <- function(df, nrOfNodes, pathToBrouter=NULL, profile=
     df <- data.frame(df)
   }
 
-  if(!any((c("startLat", "startLon", "endLat", "endLon", "id")) %in% colnames(df))){
-    stop("Coordinates columns not existing or wrongly named.
-        Coordinates have to be in columns named 'startLat', 'startLon', 'endLat', 'endLon'.")
+  if(!all((c("startLat", "startLon", "endLat", "endLon", "id")) %in% colnames(df))){
+    stop("Coordinates columns missing or wrongly named.
+        The following columns are obligatory: 'id','startLat', 'startLon', 'endLat', 'endLon'.")
   }
 
   optional <- optional
