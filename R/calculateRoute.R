@@ -10,7 +10,7 @@
 #' @param endLat Latitude of end location
 #' @param endLon Longitude of end location
 #' @param profile Routing profile. Defaults to "trekking"
-#' @param outputFormat one of "csv", "gpx" or "geojson". Defaults to "csv"
+#' @param outputFormat one of "csv" or "linestring" (as an st_linestring object with XYZ dimensions). Defaults to "csv"
 #' @param serverNodeId The node where the server is running on. Defaults to 1. Do not change for single core usage.
 #' @param bikerPower The total average power put on the pedals in Watts. Defaults to 100W
 #' @param totalMass The total weight of biker, bike and cargo in kg. Defaults to 90kg
@@ -18,8 +18,9 @@
 #' @param rollingResistance The rolling resistance of the underground. Default value assumes dry asphalt, 0.0077
 #' @param maxSpeed The maximum speed achieved by the bike in km/h. Defaults to 45 km/h.
 #'
-#' @return Either a dataframe of the track (outputFormat="csv"), or a SpatialPointsDataFrame (outputFormat="gpx"). In the SpatialPointsDataFrame, elevation data of each point is contained in the data.
+#' @return Either a dataframe of the track (outputFormat="csv"), or a st_linestring (outputFormat="linestring") containing elevation information
 #' @export
+#' @import sf
 #' @import sp
 #' @import plotKML
 #'
@@ -44,14 +45,25 @@ calculateRoute <- function(startLat, startLon, endLat, endLon, bikerPower=100, t
     download.file(url, paste(tempdir(), "\\this.txt", sep=""), quiet=T)
     data <- utils::read.table(paste(tempdir(), "\\this.txt", sep=""), sep="\t", header=TRUE)
 
-  } else if(outputFormat=="gpx"){
+  } else if(outputFormat=="linestring"){
     download.file(url, paste(tempdir(), "\\this.gpx", sep=""), quiet=T)
     gpx <- plotKML::readGPX(paste(tempdir(), "\\this.gpx", sep=""))
     gpx <- gpx$tracks[[1]][[1]]
-
     sp::coordinates(gpx) <- ~ lon + lat
     gpx@proj4string <- CRS("+init=epsg:2056")
-    data <- gpx
+
+    sfRoute <- sf::st_as_sf(route, dim="XYZ")
+
+    #Now tranform to an sf linestring object
+    z <- as.numeric(gpx$ele)
+    m <- sf::st_coordinates(plotRoute)
+    m_xyz <- cbind(m,z)
+
+    this <- st_linestring(as.matrix(m_xyz), dim="XYZ")
+    sfRoute <- st_sfc(this, crs = sf::st_crs(sfRoute))
+
+    data <- sfRoute
+    data <- st_as_sf(data)
   }
   },     error=function(e){
         stop(e)

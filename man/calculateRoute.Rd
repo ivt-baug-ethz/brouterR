@@ -40,12 +40,12 @@ calculateRoute(
 
 \item{profile}{Routing profile. Defaults to "trekking"}
 
-\item{outputFormat}{one of "csv", "gpx" or "geojson". Defaults to "csv"}
+\item{outputFormat}{one of "csv" or "linestring" (as an st_linestring object with XYZ dimensions). Defaults to "csv"}
 
 \item{serverNodeId}{The node where the server is running on. Defaults to 1. Do not change for single core usage.}
 }
 \value{
-Either a dataframe of the track (outputFormat="csv"), or a SpatialPointsDataFrame (outputFormat="gpx"). In the SpatialPointsDataFrame, elevation data of each point is contained in the data.
+Either a dataframe of the track (outputFormat="csv"), or a st_linestring (outputFormat="linestring") containing elevation information
 }
 \description{
 The route between two points is calculated for the given coordinates. The default values for rolling resistance and drag coefficient
