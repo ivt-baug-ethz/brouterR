@@ -49,7 +49,7 @@ calculateRoute <- function(startLat, startLon, endLat, endLon, bikerPower=100, t
     gpx <- plotKML::readGPX(paste(tempdir(), "\\this.gpx", sep=""))
     gpx <- gpx$tracks[[1]][[1]]
 
-    sp::coordinates(gpx) <- ~ lat + lon
+    sp::coordinates(gpx) <- ~ lon + lat
     gpx@proj4string <- CRS("+init=epsg:2056")
     data <- gpx
   }
