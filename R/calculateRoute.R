@@ -54,7 +54,8 @@ calculateRoute <- function(startLat, startLon, endLat, endLon, bikerPower=100, t
     data <- gpx
   }
   },     error=function(e){
-        stop("Did you start the servers with startServers before calling this function? Did you provide all necessary inputs?")
+        stop(e)
+        print("Did you start the servers with startServers before calling this function? Did you provide all necessary inputs?")
     }
   )
  return(data)
