@@ -56,7 +56,7 @@ calculateRoute <- function(startLat, startLon, endLat, endLon, bikerPower=100, t
 
     #Now tranform to an sf linestring object
     z <- as.numeric(gpx$ele)
-    m <- sf::st_coordinates(plotRoute)
+    m <- sf::st_coordinates(sfRoute)
     m_xyz <- cbind(m,z)
 
     this <- sf::st_linestring(as.matrix(m_xyz), dim="XYZ")
