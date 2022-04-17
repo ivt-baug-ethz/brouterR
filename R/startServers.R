@@ -17,4 +17,7 @@ startServers <- function(pathToBRouter=NULL, noServers=1){
   shell.exec("wscript.sh")
 
   setwd(oldwd)
+
+  print("--Servers started")
+
 }

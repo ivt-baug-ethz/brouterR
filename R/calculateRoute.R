@@ -20,6 +20,8 @@
 #'
 #' @return Either a dataframe of the track (outputFormat="csv"), or a SpatialPointsDataFrame (outputFormat="gpx"). In the SpatialPointsDataFrame, elevation data of each point is contained in the data.
 #' @export
+#' @import sp
+#' @import plotKML
 #'
 #' @examples
 #'
