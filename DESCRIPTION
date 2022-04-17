@@ -17,5 +17,6 @@ Imports:
     plotKML,
     RCurl,
     sp,
-	sf,
-    stringr
+    sf,
+    stringr,
+    leaflet
