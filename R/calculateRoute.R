@@ -52,18 +52,17 @@ calculateRoute <- function(startLat, startLon, endLat, endLon, bikerPower=100, t
     sp::coordinates(gpx) <- ~ lon + lat
     gpx@proj4string <- CRS("+init=epsg:2056")
 
-    sfRoute <- sf::st_as_sf(route, dim="XYZ")
+    sfRoute <- sf::st_as_sf(gpx, dim="XYZ")
 
     #Now tranform to an sf linestring object
     z <- as.numeric(gpx$ele)
     m <- sf::st_coordinates(plotRoute)
     m_xyz <- cbind(m,z)
 
-    this <- st_linestring(as.matrix(m_xyz), dim="XYZ")
-    sfRoute <- st_sfc(this, crs = sf::st_crs(sfRoute))
+    this <- sf::st_linestring(as.matrix(m_xyz), dim="XYZ")
+    sfRoute <- sf::st_sfc(this, crs = sf::st_crs(sfRoute))
 
     data <- sfRoute
-    data <- st_as_sf(data)
   }
   },     error=function(e){
         stop(e)
