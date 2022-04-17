@@ -24,8 +24,6 @@
 #' @examples
 #'
 #'
-library(plotKML)
-library(sp)
 calculateRoute <- function(startLat, startLon, endLat, endLon, bikerPower=100, totalMass=90,
                            dragCoefficient=0.559, rollingResistance=0.0077, maxSpeed=45, profile="trekking", outputFormat="csv",serverNodeId=1){
 
