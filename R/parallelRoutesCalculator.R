@@ -117,10 +117,14 @@ parallelRoutesCalculator <- function(df, nrOfNodes, pathToBrouter=NULL, profile=
                                             profile=profile)
 
           travelTime <- max(route$Time)
+
+          #Add penalty of 10secs for each traffic light intersection crossed:
+          travelTime <- travelTime+sum(grepl("traffic_sign", route$NodeTags)==TRUE)*10
+
           distance <- sum(route$Distance)
           energy <- max(route$Energy)
-          #Calculate average slope:
 
+          #Calculate average slope:
           dElev <- diff(route$Elevation)
           route <- route[-1,]
           route$dElev <- dElev
