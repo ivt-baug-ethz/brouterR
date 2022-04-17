@@ -10,7 +10,7 @@
 #' @param endLat Latitude of end location
 #' @param endLon Longitude of end location
 #' @param profile Routing profile. Defaults to "trekking"
-#' @param outputFormat one of "csv" or "linestring" (as an st_linestring object with XYZ dimensions). Defaults to "csv"
+#' @param outputFormat one of "df" or "linestring" (as an st_linestring object with XYZ dimensions). Defaults to "df"
 #' @param serverNodeId The node where the server is running on. Defaults to 1. Do not change for single core usage.
 #' @param bikerPower The total average power put on the pedals in Watts. Defaults to 100W
 #' @param totalMass The total weight of biker, bike and cargo in kg. Defaults to 90kg
@@ -18,7 +18,7 @@
 #' @param rollingResistance The rolling resistance of the underground. Default value assumes dry asphalt, 0.0077
 #' @param maxSpeed The maximum speed achieved by the bike in km/h. Defaults to 45 km/h.
 #'
-#' @return Either a dataframe of the track (outputFormat="csv"), or a st_linestring (outputFormat="linestring") containing elevation information
+#' @return Either a dataframe of the track (outputFormat="df"), or a st_linestring (outputFormat="linestring") containing elevation information
 #' @export
 #' @import sf
 #' @import sp
@@ -28,7 +28,7 @@
 #'
 #'
 calculateRoute <- function(startLat, startLon, endLat, endLon, bikerPower=100, totalMass=90,
-                           dragCoefficient=0.559, rollingResistance=0.0077, maxSpeed=45, profile="trekking", outputFormat="csv",serverNodeId=1){
+                           dragCoefficient=0.559, rollingResistance=0.0077, maxSpeed=45, profile="trekking", outputFormat="df",serverNodeId=1){
 
   data <- tryCatch(
     {
@@ -41,7 +41,7 @@ calculateRoute <- function(startLat, startLon, endLat, endLon, bikerPower=100, t
                "&maxSpeed=",maxSpeed,
                sep="")
 
-  if(outputFormat=="csv"){
+  if(outputFormat=="df"){
     download.file(url, paste(tempdir(), "\\this.txt", sep=""), quiet=T)
     data <- utils::read.table(paste(tempdir(), "\\this.txt", sep=""), sep="\t", header=TRUE)
 
