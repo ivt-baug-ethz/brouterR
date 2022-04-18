@@ -41,8 +41,6 @@ parallelRoutesCalculator <- function(df, nrOfNodes, pathToBrouter=NULL, profile=
   serverNode <- rep(1:nrOfNodes,each=ceiling(nrow(df)/nrOfNodes))
   df$serverNode <- serverNode[1:nrow(df)]
 
-  # df$serverNode <- ifelse(df$serverNode==1, 8,9)
-
   col_order <- c("serverNode", "id", "startLat",
                  "startLon", "endLat", "endLon")
 
@@ -114,6 +112,7 @@ parallelRoutesCalculator <- function(df, nrOfNodes, pathToBrouter=NULL, profile=
                                             rollingResistance=line[10],
                                             maxSpeed=line[11],
                                             serverNodeId = line[1],
+                                            outputFormat = "df",
                                             profile=profile)
 
           travelTime <- max(route$Time)
