@@ -17,8 +17,7 @@
 #'
 #' @examples
 #'
-parallelRoutesCalculator <- function(df, nrOfNodes, pathToBrouter=NULL, profile="trekking", optional=NULL){
-  pathToBrouter <- pathToBrouter
+parallelRoutesCalculator <- function(df=NULL, nrOfNodes=1, pathToBrouter=NULL, profile="trekking", optional=NULL){
 
   brouterR::setServers(pathToBRouter = pathToBrouter, nrOfNodes =nrOfNodes)
   brouterR::startServers(pathToBRouter = pathToBrouter, noServers=nrOfNodes)
