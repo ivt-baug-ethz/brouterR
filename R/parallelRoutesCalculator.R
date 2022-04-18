@@ -78,15 +78,13 @@ parallelRoutesCalculator <- function(df=NULL, nrOfNodes=1, pathToBrouter=NULL, p
   df <- df[,allCols]
 
   cl = parallel::makeCluster(nrOfNodes)
-  parallel::clusterExport(cl = cl,
-                          unclass(lsf.str(envir = asNamespace("brouterR"),
-                                          all = T))
-  )
 
   iter <- brouterR::splitForCores(df=df, nrOfNodes=nrOfNodes)
-  parallel::clusterExport(cl, c("profile", "pathToBrouter"))
+  parallel::clusterExport(cl, c("profile"))
+  parallel::clusterExport(cl, c("grepl"))
+  parallel::clusterExport(cl, c("calculateRoute"))
 
-  resultList <- parallel::clusterApply(cl, iter, function(matrix){
+  resultList <- parallel::clusterApplyLB(cl, iter, function(matrix){
 
     output <-  vector(mode='list', length=nrow(matrix))
 
@@ -95,8 +93,8 @@ parallelRoutesCalculator <- function(df=NULL, nrOfNodes=1, pathToBrouter=NULL, p
       line <- matrix[i, ]
       id=line[2]
 
-      thisRoute <- tryCatch(
-        {
+     thisRoute <-  tryCatch(
+        expr={
           route <- brouterR::calculateRoute(startLat=line[3],
                                             startLon=line[4],
                                             endLat=line[5],
@@ -110,11 +108,8 @@ parallelRoutesCalculator <- function(df=NULL, nrOfNodes=1, pathToBrouter=NULL, p
                                             outputFormat = "df",
                                             profile=profile)
 
-          travelTime <- max(route$Time)
-
-          #Add penalty of 10secs for each traffic light intersection crossed:
-          travelTime <- travelTime+sum(grepl("traffic_sign", route$NodeTags)==TRUE)*10
-
+           #Add penalty of 10secs for each traffic light intersection crossed:
+          travelTime <- max(route$Time)+sum(base::grepl("traffic_sign", route$NodeTags)==TRUE)*10
           distance <- sum(route$Distance)
           energy <- max(route$Energy)
 
@@ -124,34 +119,41 @@ parallelRoutesCalculator <- function(df=NULL, nrOfNodes=1, pathToBrouter=NULL, p
           route$dElev <- dElev
           route$slope <- 100*route$dElev/route$Distance
 
-          avgSlopeUp <- mean(route[route$slope>0,]$slope)
+
+      avgSlopeUp <- mean(route[route$slope>0,]$slope)
           avgSlopeDown <- mean(route[route$slope<0,]$slope)
 
-          thisRoute <- c(id=id,
-                         travelTime=as.numeric(travelTime),
-                         distance=as.numeric(distance),
-                         energy=as.numeric(energy),
-                         avgSlopeUp=as.numeric(avgSlopeUp),
-                         avgSlopeDown=as.numeric(avgSlopeDown)
-          )
+          thisRoute <-(c(id=id,
+                  travelTime=travelTime,
+                  distance=distance,
+                  energy=energy,
+                  avgSlopeUp=avgSlopeUp,
+                  avgSlopeDown=avgSlopeDown))
+
+
       },
 
       error=function(e){
-        thisRoute <- c(id=id,
-                       travelTime=-99,
-                       distance=-99,
-                       energy=-99,
-                       avgSlopeUp=-99,
-                       avgSlopeDown=-99
-        )
-      }
-      )
-      output[[i]] <-thisRoute
+
+                      thisRoute <- (c(id=id,
+                        travelTime=-99,
+                        distance=-99,
+                        energy=-99,
+                        avgSlopeUp=-99,
+                        avgSlopeDown=-99))
+
+
+
+      }) #End of tryCatch
+      output[[i]] <- thisRoute
+
     }
 
       return(output)
 
-    })
+    }
+
+    )
 
   parallel::stopCluster(cl)
 
