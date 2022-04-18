@@ -5,8 +5,8 @@
 \title{Parallel routes calculation}
 \usage{
 parallelRoutesCalculator(
-  df,
-  nrOfNodes,
+  df = NULL,
+  nrOfNodes = 1,
   pathToBrouter = NULL,
   profile = "trekking",
   optional = NULL
