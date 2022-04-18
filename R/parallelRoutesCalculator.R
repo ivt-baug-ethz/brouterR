@@ -13,6 +13,7 @@
 #'
 #' @return A dataframe containing the route 'id', 'travelTime', 'distance', 'energy, 'avgSlopeUp, 'avgSlopeDown'
 #' @export
+#' @import parallel
 #'
 #' @examples
 #'
@@ -76,8 +77,6 @@ parallelRoutesCalculator <- function(df, nrOfNodes, pathToBrouter=NULL, profile=
                "startLon", "endLat", "endLon", "bikerPower", "totalMass", "dragCoefficient", "rollingResistance", "maxSpeed")
 
   df <- df[,allCols]
-
-  library(parallel)
 
   cl = parallel::makeCluster(nrOfNodes)
   parallel::clusterExport(cl = cl,

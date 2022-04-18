@@ -10,13 +10,9 @@ Encoding: UTF-8
 Roxygen: list(markdown = TRUE)
 RoxygenNote: 7.1.2
 Imports: 
-    doParallel,
-    doSNOW,
-    itertools,
+    leaflet,
     parallel,
     plotKML,
-    RCurl,
-    sp,
     sf,
-    stringr,
-    leaflet
+    sp,
+    stringr

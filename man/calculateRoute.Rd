@@ -15,7 +15,7 @@ calculateRoute(
   rollingResistance = 0.0077,
   maxSpeed = 45,
   profile = "trekking",
-  outputFormat = "csv",
+  outputFormat = "df",
   serverNodeId = 1
 )
 }
@@ -40,12 +40,12 @@ calculateRoute(
 
 \item{profile}{Routing profile. Defaults to "trekking"}
 
-\item{outputFormat}{one of "csv" or "linestring" (as an st_linestring object with XYZ dimensions). Defaults to "csv"}
+\item{outputFormat}{one of "df" or "linestring" (as an st_linestring object with XYZ dimensions). Defaults to "df"}
 
 \item{serverNodeId}{The node where the server is running on. Defaults to 1. Do not change for single core usage.}
 }
 \value{
-Either a dataframe of the track (outputFormat="csv"), or a st_linestring (outputFormat="linestring") containing elevation information
+Either a dataframe of the track (outputFormat="df"), or a st_linestring (outputFormat="linestring") containing elevation information
 }
 \description{
 The route between two points is calculated for the given coordinates. The default values for rolling resistance and drag coefficient

@@ -17,7 +17,7 @@ plotRoute(
 \arguments{
 \item{route}{A route result from calculateRoute as an st_linestring object.}
 
-\item{plotOnViewer}{If the map should directly be plotted on RStudio-Viewer or not. If TRUE, nothing is returned, if FALSE, the function returns an object, which can be saved to file using the saveWidget function of the htmlwidgets package.}
+\item{plotOnViewer}{If the map should directly be plotted on RStudio-Viewer or not. If TRUE, nothing is returned, if FALSE, the function returns an object, which can be saved to file using the saveWidget function of the htmlwidgets package. Also, further leaflet map elements can be added by using pipes (\%>\%).}
 
 \item{backgroundTile}{A background tile of your choice (see list of options in leaflet::providers$)}
 
