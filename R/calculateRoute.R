@@ -32,20 +32,29 @@ calculateRoute <- function(startLat, startLon, endLat, endLon, bikerPower=100, t
 
   data <- tryCatch(
     {
-  url <- paste("http://127.0.0.",serverNodeId,":17777/brouter?lonlats=",
-               startLon,",",startLat,"|",endLon,",",endLat,"&profile=",(profile),"&alternativeidx=0&format=",outputFormat,
-               "&bikerPower=",bikerPower,
-               "&totalMass=",totalMass,
-               "&dragCoefficient=",dragCoefficient,
-               "&rollingResistance=",rollingResistance,
-               "&maxSpeed=",maxSpeed,
-               sep="")
-
   if(outputFormat=="df"){
+    url <- paste("http://127.0.0.",serverNodeId,":17777/brouter?lonlats=",
+                 startLon,",",startLat,"|",endLon,",",endLat,"&profile=",(profile),"&alternativeidx=0&format=","csv",
+                 "&bikerPower=",bikerPower,
+                 "&totalMass=",totalMass,
+                 "&dragCoefficient=",dragCoefficient,
+                 "&rollingResistance=",rollingResistance,
+                 "&maxSpeed=",maxSpeed,
+                 sep="")
+
     download.file(url, paste(tempdir(), "\\this.txt", sep=""), quiet=T)
     data <- utils::read.table(paste(tempdir(), "\\this.txt", sep=""), sep="\t", header=TRUE)
 
   } else if(outputFormat=="linestring"){
+    url <- paste("http://127.0.0.",serverNodeId,":17777/brouter?lonlats=",
+                 startLon,",",startLat,"|",endLon,",",endLat,"&profile=",(profile),"&alternativeidx=0&format=","gpx",
+                 "&bikerPower=",bikerPower,
+                 "&totalMass=",totalMass,
+                 "&dragCoefficient=",dragCoefficient,
+                 "&rollingResistance=",rollingResistance,
+                 "&maxSpeed=",maxSpeed,
+                 sep="")
+
     download.file(url, paste(tempdir(), "\\this.gpx", sep=""), quiet=T)
     gpx <- plotKML::readGPX(paste(tempdir(), "\\this.gpx", sep=""))
     gpx <- gpx$tracks[[1]][[1]]

@@ -83,13 +83,10 @@ parallelRoutesCalculator <- function(df=NULL, nrOfNodes=1, pathToBrouter=NULL, p
                                           all = T))
   )
 
+  iter <- brouterR::splitForCores(df=df, nrOfNodes=nrOfNodes)
   parallel::clusterExport(cl, c("profile", "pathToBrouter"))
 
-
-  iter <- brouterR::splitForCores(df=df, nrOfNodes=nrOfNodes)
-
-  test <- parallel::clusterApply(cl, iter, function(matrix){
-
+  resultList <- parallel::clusterApply(cl, iter, function(matrix){
 
     output <-  vector(mode='list', length=nrow(matrix))
 
@@ -131,11 +128,11 @@ parallelRoutesCalculator <- function(df=NULL, nrOfNodes=1, pathToBrouter=NULL, p
           avgSlopeDown <- mean(route[route$slope<0,]$slope)
 
           thisRoute <- c(id=id,
-                         travelTime=travelTime,
-                         distance=distance,
-                         energy=energy,
-                         avgSlopeUp=avgSlopeUp,
-                         avgSlopeDown=avgSlopeDown
+                         travelTime=as.numeric(travelTime),
+                         distance=as.numeric(distance),
+                         energy=as.numeric(energy),
+                         avgSlopeUp=as.numeric(avgSlopeUp),
+                         avgSlopeDown=as.numeric(avgSlopeDown)
           )
       },
 
@@ -147,28 +144,20 @@ parallelRoutesCalculator <- function(df=NULL, nrOfNodes=1, pathToBrouter=NULL, p
                        avgSlopeUp=-99,
                        avgSlopeDown=-99
         )
-
-
       }
       )
-
-
       output[[i]] <-thisRoute
     }
 
-    return(output)
+      return(output)
 
     })
 
   parallel::stopCluster(cl)
 
-
-  res <- do.call(c, test)
-
+  res <- do.call(c, resultList)
   result <-data.frame(t(sapply(res,c)))
-
   result[result=="NaN"] <- NA
-
 
   return(result)
 
