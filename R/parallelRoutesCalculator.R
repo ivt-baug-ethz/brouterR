@@ -17,7 +17,8 @@
 #'
 #' @examples
 #'
-parallelRoutesCalculator <- function(df=NULL, nrOfNodes=1, pathToBrouter=NULL, profile="trekking", optional=NULL){
+multipleBRoutes <- function(preset=NULL, df=NULL, nrOfNodes=1, pathToBrouter=NULL, profile=NULL, optional=NULL){
+
 
   brouterR::setServers(pathToBRouter = pathToBrouter, nrOfNodes =nrOfNodes)
   brouterR::startServers(pathToBRouter = pathToBrouter, noServers=nrOfNodes)
@@ -32,7 +33,6 @@ parallelRoutesCalculator <- function(df=NULL, nrOfNodes=1, pathToBrouter=NULL, p
         The following columns are obligatory: 'id','startLat', 'startLon', 'endLat', 'endLon'.")
   }
 
-  optional <- optional
   colnames <- colnames(df)
 
   this <- optional %in% colnames
@@ -72,6 +72,43 @@ parallelRoutesCalculator <- function(df=NULL, nrOfNodes=1, pathToBrouter=NULL, p
     df$maxSpeed <- maxSpeed
   }
 
+
+  #Override values if preset is passed
+
+  if(preset=="conventionalbike"){
+      intersecPen <- 10
+      df$maxSpeed <- 35
+
+  }
+
+  #https://www.gribble.org/cycling/power_v_speed.html
+
+    if(preset=="e-bike"){
+      #https://www.bosch-ebike.com/us/products/drive-units/
+      #Simulate a sports drive
+      df$bikerPower <- df$bikerPower*3 #Assuming turbo-mode
+      df$bikerPower <- ifelse(df$bikerPower>250, 250, df$bikerPower)
+      df$maxSpeed <- 35
+
+     # https://www.bosch-ebike.com/en/everything-about-the-ebike-redirect/rund-ums-ebike/stories-experiences-and-adventures/ebike-weight-this-is-how-much-an-electric-bike-weighs
+     #E-bikes weight ca. 22kg, so
+       df$totalMass <- df$totalMass+8
+
+      #https://doi.org/10.1016/j.trd.2013.02.001 e-bikes
+      intersecPen <- 8
+    }
+
+    if(preset=="s-pedelec"){
+
+      df$bikerPower <- df$bikerPower*3
+      df$bikerPower <- ifelse(df$bikerPower>750, 750, df$bikerPower)
+      df$totalMass <- df$totalMass+10
+      df$maxSpeed <-45
+      intersecPen <- 7
+    }
+
+
+
   allCols <- c("serverNode", "id","startLat",
                "startLon", "endLat", "endLon", "bikerPower", "totalMass", "dragCoefficient", "rollingResistance", "maxSpeed")
 
@@ -80,9 +117,7 @@ parallelRoutesCalculator <- function(df=NULL, nrOfNodes=1, pathToBrouter=NULL, p
   cl = parallel::makeCluster(nrOfNodes)
 
   iter <- brouterR::splitForCores(df=df, nrOfNodes=nrOfNodes)
-  parallel::clusterExport(cl, c("profile"))
-  parallel::clusterExport(cl, c("grepl"))
-  parallel::clusterExport(cl, c("calculateRoute"))
+  parallel::clusterExport(cl, c("profile", "grepl", "calculateRoute", "intersecPen"))
 
   resultList <- parallel::clusterApplyLB(cl, iter, function(matrix){
 
@@ -109,7 +144,7 @@ parallelRoutesCalculator <- function(df=NULL, nrOfNodes=1, pathToBrouter=NULL, p
                                             profile=profile)
 
            #Add penalty of 10secs for each traffic light intersection crossed:
-          travelTime <- max(route$Time)+sum(base::grepl("traffic_sign", route$NodeTags)==TRUE)*10
+          travelTime <- max(route$Time)+sum(base::grepl("traffic_sign", route$NodeTags)==TRUE)*intersecPen
           distance <- sum(route$Distance)
           energy <- max(route$Energy)
 
