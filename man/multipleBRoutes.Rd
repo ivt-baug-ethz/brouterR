@@ -14,6 +14,8 @@ multipleBRoutes(
 )
 }
 \arguments{
+\item{preset}{A preset of power and weight addition for bikes, e-bikes and s-pedelecs (Swiss norms).}
+
 \item{df}{A dataframe or datatable containing all origin-destination pairs. The table has to contain the columns 'id', 'startLat', 'startLon', 'endLat', 'endLon' in WGS84 coordinates}
 
 \item{nrOfNodes}{Number of nodes the router is supposed to run on. Suggested to always use at max 1 core less than the total amount of cores in processor.}
@@ -22,7 +24,8 @@ multipleBRoutes(
 
 \item{profile}{The brouter profile to be used in the routing.}
 
-\item{optional}{Optional arguments: A list containing a combination of column names which have to exactly match the following names: 'bikerPower', 'totalMass', 'dragCoefficient', 'rollingResistance', 'maxSpeed'}
+\item{optional}{Optional arguments: A list containing a combination of column names which have to exactly match the following names: 'bikerPower', 'totalMass', 'dragCoefficient', 'rollingResistance', 'maxSpeed'
+#'}
 }
 \value{
 A dataframe containing the route 'id', 'travelTime', 'distance', 'energy, 'avgSlopeUp, 'avgSlopeDown'
