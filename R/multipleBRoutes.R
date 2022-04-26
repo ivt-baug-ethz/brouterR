@@ -166,8 +166,8 @@ multipleBRoutes <- function(preset=NULL, df=NULL, nrOfNodes=1, pathToBrouter=NUL
                   distance=distance,
                   energy=energy,
                   avgSlopeUp=avgSlopeUp,
-                  avgSlopeDown=avgSlopeDown,
-                  intersecPen=intersecPen))
+                  avgSlopeDown=avgSlopeDown
+                  ))
 
 
       },
@@ -179,8 +179,8 @@ multipleBRoutes <- function(preset=NULL, df=NULL, nrOfNodes=1, pathToBrouter=NUL
                         distance=-99,
                         energy=-99,
                         avgSlopeUp=-99,
-                        avgSlopeDown=-99,
-                        intersecPen=intersecPen))
+                        avgSlopeDown=-99
+                        ))
 
 
 
