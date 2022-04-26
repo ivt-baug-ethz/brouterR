@@ -108,7 +108,6 @@ multipleBRoutes <- function(preset=NULL, df=NULL, nrOfNodes=1, pathToBrouter=NUL
     }
 
 
-
   allCols <- c("serverNode", "id","startLat",
                "startLon", "endLat", "endLon", "bikerPower", "totalMass", "dragCoefficient", "rollingResistance", "maxSpeed")
 
@@ -116,10 +115,14 @@ multipleBRoutes <- function(preset=NULL, df=NULL, nrOfNodes=1, pathToBrouter=NUL
 
   cl = parallel::makeCluster(nrOfNodes)
 
+  env <- new.env()
+  env$intersecPen <- intersecPen
+
   iter <- brouterR::splitForCores(df=df, nrOfNodes=nrOfNodes)
   parallel::clusterExport(cl, c("profile", "grepl", "calculateRoute"))
+  parallel::clusterExport(cl, c("intersecPen"), envir = env)
 
-  resultList <- parallel::clusterApplyLB(cl, iter, function(matrix, intersecPen){
+  resultList <- parallel::clusterApplyLB(cl, iter, function(matrix){
 
     output <-  vector(mode='list', length=nrow(matrix))
 
@@ -163,7 +166,8 @@ multipleBRoutes <- function(preset=NULL, df=NULL, nrOfNodes=1, pathToBrouter=NUL
                   distance=distance,
                   energy=energy,
                   avgSlopeUp=avgSlopeUp,
-                  avgSlopeDown=avgSlopeDown))
+                  avgSlopeDown=avgSlopeDown,
+                  intersecPen=intersecPen))
 
 
       },
@@ -175,7 +179,8 @@ multipleBRoutes <- function(preset=NULL, df=NULL, nrOfNodes=1, pathToBrouter=NUL
                         distance=-99,
                         energy=-99,
                         avgSlopeUp=-99,
-                        avgSlopeDown=-99))
+                        avgSlopeDown=-99,
+                        intersecPen=intersecPen))
 
 
 
