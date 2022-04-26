@@ -77,7 +77,7 @@ multipleBRoutes <- function(preset=NULL, df=NULL, nrOfNodes=1, pathToBrouter=NUL
 
   if(preset=="conventionalbike"){
       intersecPen <- 10
-      df$maxSpeed <- 35
+      df$maxSpeed <- 26
 
   }
 
@@ -88,7 +88,7 @@ multipleBRoutes <- function(preset=NULL, df=NULL, nrOfNodes=1, pathToBrouter=NUL
       #Simulate a sports drive
       df$bikerPower <- df$bikerPower*3 #Assuming turbo-mode
       df$bikerPower <- ifelse(df$bikerPower>250, 250, df$bikerPower)
-      df$maxSpeed <- 35
+      df$maxSpeed <- 26
 
      # https://www.bosch-ebike.com/en/everything-about-the-ebike-redirect/rund-ums-ebike/stories-experiences-and-adventures/ebike-weight-this-is-how-much-an-electric-bike-weighs
      #E-bikes weight ca. 22kg, so
