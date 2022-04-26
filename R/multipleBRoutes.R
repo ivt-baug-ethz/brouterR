@@ -117,10 +117,9 @@ multipleBRoutes <- function(preset=NULL, df=NULL, nrOfNodes=1, pathToBrouter=NUL
   cl = parallel::makeCluster(nrOfNodes)
 
   iter <- brouterR::splitForCores(df=df, nrOfNodes=nrOfNodes)
-  parallel::clusterExport(cl, c("profile", "grepl", "calculateRoute", "intersecPen"))
-  parallel::clusterExport(cl, c("intersecPen"), envir = environment())
+  parallel::clusterExport(cl, c("profile", "grepl", "calculateRoute"))
 
-  resultList <- parallel::clusterApplyLB(cl, iter, function(matrix){
+  resultList <- parallel::clusterApplyLB(cl, iter, function(matrix, intersecPen){
 
     output <-  vector(mode='list', length=nrow(matrix))
 
