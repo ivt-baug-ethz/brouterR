@@ -26,7 +26,8 @@ This R-Wrapper is based on the brouter offline server for computers. For running
 
 IMPORTANT: You first have to manually download the segments for the world regions or generate one yourself from OSM and put it in a "segments4" folder within the installation folder of the brouter.
 
-Segments can be downloaded from here (worldwide coverage): http://brouter.de/brouter/segments4/
+Segments can be downloaded from here (worldwide coverage): http://brouter.de/brouter/segments4/  
+For Switzerland, use the segment E5_N45.rd5.  
 
 The following text is copied from http://github.com/abrensch/brouter  
 
