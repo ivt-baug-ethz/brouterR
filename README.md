@@ -59,7 +59,7 @@ Once the the setup is complete, the R-functions in the package can be run.
 There are 3 main functions for running the brouter. All can use as input parameters on individual biker and route characteristics (bikerPower,totalMass,dragCoefficient,rollingResistance,maxSpeed). If not provided, default values are used. 
 
 ### calculateRoute
-Calculates a single route, the output can either a SpatialPointsDataFrame (Object of package "sp"), containing street segments and elevation points of the routing, or it can be a csv file, containing further details on the route.   
+Calculates a single route, the output can either a SpatialPointsDataFrame (Object of package "sp"), containing street segments and elevation points of the routing, or it can be a csv file, containing further details on the route. The plotRoute function allows for a quick plot of the route on an interactive map for checks.
 IMPORTANT: Before running this function, the local servers need to be set up and started manually with the setServers and startServers functions. 
 
 ### parallelRoutesCalculator
