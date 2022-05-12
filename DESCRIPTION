@@ -12,8 +12,8 @@ RoxygenNote: 7.1.2
 Imports: 
     leaflet,
     parallel,
-    plotKML,
     RCurl,
     sf,
     sp,
-    stringr
+    stringr,
+	tmaptools

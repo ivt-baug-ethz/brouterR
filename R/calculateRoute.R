@@ -22,7 +22,7 @@
 #' @export
 #' @import sf
 #' @import sp
-#' @import plotKML
+#' @import tmaptools
 #'
 #' @examples
 #'
@@ -56,20 +56,8 @@ calculateRoute <- function(startLat, startLon, endLat, endLon, bikerPower=100, t
                  sep="")
 
     download.file(url, paste(tempdir(), "\\this.gpx", sep=""), quiet=T)
-    gpx <- plotKML::readGPX(paste(tempdir(), "\\this.gpx", sep=""))
-    gpx <- gpx$tracks[[1]][[1]]
-    sp::coordinates(gpx) <- ~ lon + lat
-    gpx@proj4string <- CRS("+init=epsg:2056")
-
-    sfRoute <- sf::st_as_sf(gpx, dim="XYZ")
-
-    #Now tranform to an sf linestring object
-    z <- as.numeric(gpx$ele)
-    m <- sf::st_coordinates(sfRoute)
-    m_xyz <- cbind(m,z)
-
-    this <- sf::st_linestring(as.matrix(m_xyz), dim="XYZ")
-    sfRoute <- sf::st_sfc(this, crs = sf::st_crs(sfRoute))
+    gpx <- tmaptools::read_GPX(paste(tempdir(), "\\this.gpx", sep=""))
+    gpx <- gpx$tracks$geometry[[1]]
 
     data <- sfRoute
   }
