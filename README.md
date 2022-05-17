@@ -15,7 +15,7 @@ This is a R-Wrapper for the brouter, an open-source, OSM-based offline bicycle r
 ## Installation
 ```{r example, results = FALSE,message=FALSE, warning=FALSE}
 require(devtools)
-install_github("https://github.com/mflucas/brouterR")
+install_github("https://github.com/ivt-baug-ethz/brouterR")
 
 #Install brouter to a local folder:
 brouterR::installbrouterR(pathToLocalFolder)
