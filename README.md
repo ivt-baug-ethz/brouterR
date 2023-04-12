@@ -20,6 +20,9 @@ install_github("https://github.com/ivt-baug-ethz/brouterR")
 #Install brouter to a local folder:
 brouterR::installbrouterR(pathToLocalFolder)
 
+#Before you start you will have to install Java JDK 10 or above and restart your computer before routing!
+
+
 ```
 
 This R-Wrapper is based on the brouter offline server for computers. For running it, you first need to install it using the specified brouterR function. This is required since the original brouter-.jar file is modified for use with brouterR. 
