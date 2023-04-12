@@ -13,5 +13,6 @@ installbrouterR <- function(installationFolderPath=NULL){
   unzip(zipfile = destfile, exdir=installationFolderPath)
 
   print("Installation complete")
-  print("Don't forget to download necessary segments at http://brouter.de/brouter/segments4/ and put them in the segments4 folder before running.")
+  print("REMINDER 1/2: Don't forget to install Java JDK 10 or above!!")
+  print("REMINDER 2/2: Don't forget to download necessary segments at http://brouter.de/brouter/segments4/ and put them in the segments4 folder before running.")
 }
