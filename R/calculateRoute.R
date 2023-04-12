@@ -59,7 +59,7 @@ calculateRoute <- function(startLat, startLon, endLat, endLon, bikerPower=100, t
     gpx <- tmaptools::read_GPX(paste(tempdir(), "\\this.gpx", sep=""))
     gpx <- gpx$tracks$geometry[[1]]
 
-    data <- sfRoute
+    data <- gpx
   }
   },     error=function(e){
         stop(e)

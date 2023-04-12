@@ -62,11 +62,11 @@ There are 3 main functions for running the brouter. All can use as input paramet
 Calculates a single route, the output can either a SpatialPointsDataFrame (Object of package "sp"), containing street segments and elevation points of the routing, or it can be a csv file, containing further details on the route. The plotRoute function allows for a quick plot of the route on an interactive map for checks.
 IMPORTANT: Before running this function, the local servers need to be set up and started manually with the setServers and startServers functions. 
 
-### parallelRoutesCalculator
+### multipleBRoutes
 Speed-optimized function for calculating routes. This is achieved by a parallelization of the routing tasks (the number of nodes needs to be actively provided). 
 This function automatically sets and starts the servers before routing is done. 
 The output is a series of variables (total travel time, total distance, total elevation gain, upward and downward slope and energy expenditure for the route), which are aggregated from the .csv file output. 
-For this function to be used, the input dataframe has to have columns for start and end coordinates of each route named as startLat, startLon, endLat, endLon, otherwise the router does not work. 
+For this function to be used, the input dataframe has to have columns for start and end coordinates of each route named as "startLat", "startLon", "endLat", "endLon", as well as a column named "id" otherwise the router does not work. 
 
 ### calculateAggrMetrics
 Single core version of parallelRoutesCalculator. 

@@ -4,7 +4,7 @@
 #' The calculated values are a summary of the detailed csv-file that brouter outputs at a route request. The original file can be called with the calculateRoute function
 #' or visualized online at http://www.brouter.de/brouter-web by clicking on the Data option after calculating a route.
 #'
-#' @param preset A preset of power and weight addition for bikes, e-bikes and s-pedelecs (Swiss norms).
+#' @param preset A preset of power and weight. One of "conventionalbike", "e-bike" or "s-pedelec". Instead of presets all parameters can be passed individually under the "optional" parameters.
 #' @param df A dataframe or datatable containing all origin-destination pairs. The table has to contain the columns 'id', 'startLat', 'startLon', 'endLat', 'endLon' in WGS84 coordinates
 #' @param nrOfNodes Number of nodes the router is supposed to run on. Suggested to always use at max 1 core less than the total amount of cores in processor.
 #' @param pathToBrouter Path to installation folder of brouter.
@@ -17,7 +17,7 @@
 #'
 #' @examples
 #'
-multipleBRoutes <- function(preset=NULL, df=NULL, nrOfNodes=1, pathToBrouter=NULL, profile=NULL, optional=NULL){
+multipleBRoutes <- function(preset="conventionalbike", df=NULL, nrOfNodes=1, pathToBrouter=NULL, profile=NULL, optional=NULL){
 
 
   brouterR::setServers(pathToBRouter = pathToBrouter, nrOfNodes =nrOfNodes)
