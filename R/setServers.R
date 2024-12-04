@@ -13,13 +13,18 @@ setServers <- function(nrOfNodes=1, nodeRAM=128, pathToBRouter=NULL){
 
   pathToBRouter <- gsub("/","\\", pathToBRouter, fixed=T)
   pathToBRouterWrite <- gsub("\\", "\\\\", pathToBRouter, fixed=T)
+  
+  drive <- substr(pathToBRouter,1,2)
 
   controller=c()
   for(i in 1:nrOfNodes){
     fileName=paste("server", "_",i,".bat", sep="")
     fileCreate=paste(pathToBRouter,"\\",fileName,sep="")
-    content=paste("start /min cmd /C cd ",pathToBRouterWrite," && java -Xmx",nodeRAM,"M -Xms",nodeRAM,"M -Xmn8M -DmaxRunningTime=300 -cp brouter-1.6.3_brouterR-all.jar btools.server.RouteServer segments4 profiles2 customprofiles 17777 5 127.0.0.",i,sep="")
-
+    content <- paste0(
+      "start /min cmd /C \"", drive, " && cd ", pathToBRouterWrite, 
+      " && java -Xmx", nodeRAM, "M -Xms", nodeRAM, 
+      "M -Xmn8M -DmaxRunningTime=300 -cp brouter-1.6.3_brouterR-all.jar btools.server.RouteServer segments4 profiles2 customprofiles 17777 5 127.0.0.", i, "\""
+    )
     contrLine <- paste("wscript ", "\"",pathToBRouterWrite,"\\","invisible.vbs","\" ", "\"",pathToBRouterWrite,"\\",
                        fileName,"\"",sep="")
     controller <- c(controller,contrLine)
